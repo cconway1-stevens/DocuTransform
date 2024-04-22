@@ -1,6 +1,4 @@
-Here’s how the report for the SYS 625 final individual project, titled "Provide Features and Maintenance for an ATM System," could be structured in the first person:
 
----
 
 # Final Individual Project Report: SYS 625
 ## "Provide Features and Maintenance" for an ATM System
