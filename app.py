@@ -87,20 +87,22 @@ def main():
     input_text = st.text_area("Or, paste your text here")
 
     image_paths = find_image_paths(input_text)
+    image_files_needed = {}
 
     if image_paths:
         st.sidebar.markdown("### Image Paths Detected")
-        st.sidebar.write("The following image paths were detected in your Markdown text. Please upload the corresponding images.")
+        st.sidebar.write(f"The following image paths were detected in your Markdown text:")
+        for image_path in image_paths:
+            st.sidebar.write(f"- {image_path}")
+            image_files_needed[image_path] = None
+
+        st.sidebar.write("Please upload the corresponding images.")
         uploaded_images = st.file_uploader("Upload images for Markdown", type=["png", "jpg", "jpeg", "gif"], accept_multiple_files=True)
 
         if uploaded_images:
-            image_dir = tempfile.mkdtemp()
-            image_files = {img.name: img for img in uploaded_images}
-            for image_path in image_paths:
-                if image_path in image_files:
-                    with open(os.path.join(image_dir, os.path.basename(image_path)), 'wb') as img_file:
-                        img_file.write(image_files[image_path].getvalue())
-                    input_text = input_text.replace(image_path, os.path.join(image_dir, os.path.basename(image_path)))
+            for image in uploaded_images:
+                if image.name in image_files_needed:
+                    image_files_needed[image.name] = image
     else:
         uploaded_images = None
 
@@ -123,17 +125,18 @@ def main():
                 st.error("Please upload a file or paste text to convert.")
                 return
 
-            if uploaded_images:
+            if image_files_needed:
                 image_dir = temp_dir / "images"
                 image_dir.mkdir()
-                image_paths = {}
-                for image in uploaded_images:
-                    image_path = image_dir / image.name
-                    with open(image_path, 'wb') as img_file:
-                        img_file.write(image.getvalue())
-                    image_paths[image.name] = image_path
-                for image_name, image_path in image_paths.items():
-                    input_text = input_text.replace(f"![{image_name}]", f"![{image_name}]({image_path})")
+                for image_name, image in image_files_needed.items():
+                    if image is not None:
+                        image_path = image_dir / image_name
+                        with open(image_path, 'wb') as img_file:
+                            img_file.write(image.getvalue())
+                        input_text = input_text.replace(image_name, image_path.as_posix())
+                    else:
+                        st.error(f"Missing image file: {image_name}")
+                        return
             
             md_file = convert_to_md(input_text, temp_dir, filename=filename)
             if md_file:
