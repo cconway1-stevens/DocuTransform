@@ -133,7 +133,11 @@ def main():
                         with open(image_path, 'wb') as img_file:
                             img_file.write(image.getvalue())
                         # Update Markdown to use the new image path
-                        input_text = input_text.replace(image_name, image_path.as_posix())
+                        input_text = re.sub(
+                            rf'!\[.*?\]\({re.escape(image_name)}\)',
+                            f'![{image_name}]({image_path})',
+                            input_text
+                        )
                     else:
                         st.error(f"Missing image file: {image_name}")
                         return
@@ -161,7 +165,7 @@ def main():
                 print_script = f"""
                 <script>
                 function printContent() {{
-                    var content = `{markdown_content}`;
+                    var content = `{markdown_content.replace('`', '\\`')}`;
                     var printWindow = window.open('', '', 'height=500,width=500');
                     printWindow.document.write('<html><head><title>Markdown Preview</title>');
                     printWindow.document.write('</head><body>');
