@@ -146,8 +146,9 @@ def main():
 
                 with open(md_file, 'r') as f:
                     st.markdown("### Markdown Preview")
-                    st.markdown(f.read(), unsafe_allow_html=True)
-                
+                    markdown_content = f.read()
+                    st.markdown(markdown_content, unsafe_allow_html=True)
+
                 st.sidebar.download_button("Download Markdown", data=open(md_file, 'rb'), file_name=os.path.basename(md_file))
                 if word_file:
                     st.sidebar.download_button("Download Word", data=open(word_file, 'rb'), file_name=os.path.basename(word_file))
@@ -156,30 +157,23 @@ def main():
                 if rtf_file:
                     st.sidebar.download_button("Download RTF", data=open(rtf_file, 'rb'), file_name=os.path.basename(rtf_file))
 
-                # Provide links to open files in a new tab
-                st.sidebar.markdown("### Open in New Tab")
-                md_file_url = f"/files/{md_file.name}"
-                word_file_url = f"/files/{word_file.name}" if word_file else None
-                pdf_file_url = f"/files/{pdf_file.name}" if pdf_file else None
-                rtf_file_url = f"/files/{rtf_file.name}" if rtf_file else None
-
-                st.sidebar.markdown(f"[Open Markdown]({md_file_url})", unsafe_allow_html=True)
-                if word_file_url:
-                    st.sidebar.markdown(f"[Open Word]({word_file_url})", unsafe_allow_html=True)
-                if pdf_file_url:
-                    st.sidebar.markdown(f"[Open PDF]({pdf_file_url})", unsafe_allow_html=True)
-                if rtf_file_url:
-                    st.sidebar.markdown(f"[Open RTF]({rtf_file_url})", unsafe_allow_html=True)
-
-                # Serve files using static files
-                if md_file:
-                    st.markdown(f"[Open Markdown](file://{md_file})", unsafe_allow_html=True)
-                if word_file:
-                    st.markdown(f"[Open Word](file://{word_file})", unsafe_allow_html=True)
-                if pdf_file:
-                    st.markdown(f"[Open PDF](file://{pdf_file})", unsafe_allow_html=True)
-                if rtf_file:
-                    st.markdown(f"[Open RTF](file://{rtf_file})", unsafe_allow_html=True)
+                # JavaScript to print the Markdown content
+                print_script = f"""
+                <script>
+                function printContent() {{
+                    var content = `{markdown_content}`;
+                    var printWindow = window.open('', '', 'height=500,width=500');
+                    printWindow.document.write('<html><head><title>Markdown Preview</title>');
+                    printWindow.document.write('</head><body>');
+                    printWindow.document.write(content);
+                    printWindow.document.write('</body></html>');
+                    printWindow.document.close();
+                    printWindow.print();
+                }}
+                </script>
+                <button onclick="printContent()">Print Markdown</button>
+                """
+                st.markdown(print_script, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
