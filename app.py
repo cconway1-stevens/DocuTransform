@@ -3,12 +3,14 @@ import os
 import pypandoc
 import streamlit as st
 import tempfile
-import shutil
 
 def check_and_install_pandoc():
-    if not pypandoc.get_pandoc_path():
-        st.info("Pandoc not found. Downloading and installing Pandoc...")
-        pypandoc.download_pandoc()
+    try:
+        if not pypandoc.get_pandoc_path():
+            st.info("Pandoc not found. Downloading and installing Pandoc...")
+            pypandoc.download_pandoc()
+    except Exception as e:
+        st.error(f"An error occurred while checking/installing Pandoc: {e}")
 
 def format_equations(text):
     """
