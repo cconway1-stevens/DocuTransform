@@ -165,7 +165,7 @@ def main():
                 print_script = f"""
                 <script>
                 function printContent() {{
-                    var content = `{markdown_content.replace('`', '\\`')}`;
+                    var content = `{markdown_content.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$').replace('{', '\\{').replace('}', '\\}')}`;
                     var printWindow = window.open('', '', 'height=500,width=500');
                     printWindow.document.write('<html><head><title>Markdown Preview</title>');
                     printWindow.document.write('</head><body>');
