@@ -45,7 +45,7 @@ def convert_to_pdf(input_md_file, output_dir):
     """
     try:
         pdf_file = os.path.join(output_dir, os.path.splitext(os.path.basename(input_md_file))[0] + ".pdf")
-        pypandoc.convert_file(input_md_file, 'pdf', outputfile=pdf_file, extra_args=['--pdf-engine=xelatex'])
+        pypandoc.convert_file(input_md_file, 'pdf', outputfile=pdf_file, extra_args=['--pdf-engine=pdflatex'])
         return pdf_file
     except Exception as e:
         st.error(f"An error occurred during PDF conversion: {e}")
