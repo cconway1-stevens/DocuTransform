@@ -3,6 +3,7 @@ import os
 import pypandoc
 import streamlit as st
 import tempfile
+import shutil
 
 def format_equations(text):
     """
@@ -11,7 +12,7 @@ def format_equations(text):
     pattern = re.compile(r'\$\$(.*?)\$\$')
     return pattern.sub(lambda x: f'$$\\({x.group(1)}\\)$$', text)
 
-def convert_to_md(input_text, output_dir="outputs", filename="text.txt"):
+def convert_to_md(input_text, output_dir, filename="text.txt"):
     """
     Apply Markdown formatting to the input text and write the output to a specified directory.
     """
@@ -19,15 +20,6 @@ def convert_to_md(input_text, output_dir="outputs", filename="text.txt"):
         text = format_equations(input_text)
         text = text.replace('$$', '')  # Remove extra dollar signs
         markdown_content = "" + text
-        
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        else:
-            # Clear all contents of the directory if it already exists
-            for file in os.listdir(output_dir):
-                file_path = os.path.join(output_dir, file)
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
         
         output_path = os.path.join(output_dir, os.path.splitext(filename)[0] + ".md")
         with open(output_path, 'w') as f:
@@ -37,7 +29,7 @@ def convert_to_md(input_text, output_dir="outputs", filename="text.txt"):
     except Exception as e:
         st.error(f"An error occurred: {e}")
 
-def convert_to_word(input_md_file, output_dir="outputs"):
+def convert_to_word(input_md_file, output_dir):
     """
     Convert the given Markdown file to Word format using pypandoc.
     """
@@ -48,18 +40,18 @@ def convert_to_word(input_md_file, output_dir="outputs"):
     except Exception as e:
         st.error(f"An error occurred during Word conversion: {e}")
 
-def convert_to_pdf(input_md_file):
+def convert_to_pdf(input_md_file, output_dir):
     """
     Convert the given Markdown file to PDF using pypandoc.
     """
     try:
-        pdf_file = input_md_file.replace('.md', '.pdf')
+        pdf_file = os.path.join(output_dir, os.path.splitext(os.path.basename(input_md_file))[0] + ".pdf")
         pypandoc.convert_file(input_md_file, 'pdf', outputfile=pdf_file, extra_args=['--pdf-engine=xelatex'])
         return pdf_file
     except Exception as e:
         st.error(f"An error occurred during PDF conversion: {e}")
 
-def convert_to_rtf(input_md_file, output_dir="outputs"):
+def convert_to_rtf(input_md_file, output_dir):
     """
     Convert the given Markdown file to RTF format using pypandoc.
     """
@@ -87,41 +79,39 @@ def main():
     input_text = st.text_area("Or, paste your text here")
 
     if st.button("Convert"):
-        output_dir = "outputs"
-        os.makedirs(output_dir, exist_ok=True)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            if uploaded_file is not None:
+                temp_file_path = os.path.join(temp_dir, uploaded_file.name)
+                with open(temp_file_path, 'wb') as temp_file:
+                    temp_file.write(uploaded_file.getvalue())
+                
+                with open(temp_file_path, 'r') as f:
+                    input_text = f.read()
 
-        if uploaded_file is not None:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.txt') as temp_file:
-                temp_file.write(uploaded_file.getvalue())
-                temp_filepath = temp_file.name
+                filename = uploaded_file.name
+            elif input_text:
+                filename = "pasted_text.txt"
+            else:
+                st.error("Please upload a file or paste text to convert.")
+                return
 
-            with open(temp_filepath, 'r') as f:
-                input_text = f.read()
+            md_file = convert_to_md(input_text, temp_dir, filename=filename)
+            if md_file:
+                word_file = convert_to_word(md_file, temp_dir)
+                pdf_file = convert_to_pdf(md_file, temp_dir)
+                rtf_file = convert_to_rtf(md_file, temp_dir)
 
-            filename = uploaded_file.name
-        elif input_text:
-            filename = "pasted_text.txt"
-        else:
-            st.error("Please upload a file or paste text to convert.")
-            return
+                with open(md_file, 'r') as f:
+                    st.markdown("### Markdown Preview")
+                    st.markdown(f.read(), unsafe_allow_html=True)
 
-        md_file = convert_to_md(input_text, output_dir, filename=filename)
-        if md_file:
-            word_file = convert_to_word(md_file, output_dir)
-            pdf_file = convert_to_pdf(md_file)
-            rtf_file = convert_to_rtf(md_file, output_dir)
-
-            with open(md_file, 'r') as f:
-                st.markdown("### Markdown Preview")
-                st.markdown(f.read(), unsafe_allow_html=True)
-
-            st.sidebar.download_button("Download Markdown", data=open(md_file, 'rb'), file_name=os.path.basename(md_file))
-            if word_file:
-                st.sidebar.download_button("Download Word", data=open(word_file, 'rb'), file_name=os.path.basename(word_file))
-            if pdf_file:
-                st.sidebar.download_button("Download PDF", data=open(pdf_file, 'rb'), file_name=os.path.basename(pdf_file))
-            if rtf_file:
-                st.sidebar.download_button("Download RTF", data=open(rtf_file, 'rb'), file_name=os.path.basename(rtf_file))
+                st.sidebar.download_button("Download Markdown", data=open(md_file, 'rb'), file_name=os.path.basename(md_file))
+                if word_file:
+                    st.sidebar.download_button("Download Word", data=open(word_file, 'rb'), file_name=os.path.basename(word_file))
+                if pdf_file:
+                    st.sidebar.download_button("Download PDF", data=open(pdf_file, 'rb'), file_name=os.path.basename(pdf_file))
+                if rtf_file:
+                    st.sidebar.download_button("Download RTF", data=open(rtf_file, 'rb'), file_name=os.path.basename(rtf_file))
 
 if __name__ == "__main__":
     main()
