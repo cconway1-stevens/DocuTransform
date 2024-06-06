@@ -14,10 +14,11 @@ def format_equations(text):
 
 def find_image_paths(text):
     """
-    Find all image paths in the markdown text.
+    Find all image paths in the markdown text, stripping any directory structure.
     """
     pattern = re.compile(r'!\[.*?\]\((.*?)\)')
-    return pattern.findall(text)
+    paths = pattern.findall(text)
+    return [Path(path).name for path in paths]
 
 def convert_to_md(input_text, output_dir, filename="text.txt"):
     """
@@ -133,7 +134,7 @@ def main():
                         image_path = image_dir / image_name
                         with open(image_path, 'wb') as img_file:
                             img_file.write(image.getvalue())
-                        input_text = input_text.replace(image_name, image_path.as_posix())
+                        input_text = re.sub(r'!\[.*?\]\(.*?{}\)'.format(re.escape(image_name)), f'![{image_name}]({image_path})', input_text)
                     else:
                         st.error(f"Missing image file: {image_name}")
                         return
