@@ -4,14 +4,6 @@ import pypandoc
 import streamlit as st
 import tempfile
 
-def check_and_install_pandoc():
-    try:
-        if not pypandoc.get_pandoc_path():
-            st.info("Pandoc not found. Downloading and installing Pandoc...")
-            pypandoc.download_pandoc()
-    except Exception as e:
-        st.error(f"An error occurred while checking/installing Pandoc: {e}")
-
 def format_equations(text):
     """
     Process LaTeX-like syntax by wrapping equations with double dollar signs for LaTeX compatibility.
@@ -86,8 +78,6 @@ def main():
     input_text = st.text_area("Or, paste your text here")
 
     if st.button("Convert"):
-        check_and_install_pandoc()
-        
         with tempfile.TemporaryDirectory() as temp_dir:
             if uploaded_file is not None:
                 temp_file_path = os.path.join(temp_dir, uploaded_file.name)
