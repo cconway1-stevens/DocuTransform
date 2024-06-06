@@ -1,5 +1,6 @@
 import re
 import os
+import base64
 import pypandoc
 import streamlit as st
 import tempfile
@@ -19,7 +20,7 @@ def convert_to_md(input_text, output_dir, filename="text.txt"):
     try:
         text = format_equations(input_text)
         text = text.replace('$$', '')  # Remove extra dollar signs
-        markdown_content = "" + text
+        markdown_content = text
         
         output_path = os.path.join(output_dir, os.path.splitext(filename)[0] + ".md")
         with open(output_path, 'w') as f:
@@ -62,6 +63,18 @@ def convert_to_rtf(input_md_file, output_dir):
     except Exception as e:
         st.error(f"An error occurred during RTF conversion: {e}")
 
+def embed_images_in_md(input_text, images):
+    """
+    Embed images directly in the Markdown content as base64.
+    """
+    for image in images:
+        with open(image, 'rb') as img_file:
+            img_data = img_file.read()
+            img_base64 = base64.b64encode(img_data).decode('utf-8')
+            img_tag = f'![{os.path.basename(image)}](data:image/png;base64,{img_base64})'
+            input_text = input_text.replace(f'![{os.path.basename(image)}]', img_tag)
+    return input_text
+
 def main():
     st.title("File Converter")
 
@@ -101,16 +114,14 @@ def main():
                 return
 
             if uploaded_images:
-                image_dir = temp_dir / "images"
-                image_dir.mkdir()
-                image_paths = {}
+                image_paths = []
                 for image in uploaded_images:
-                    image_path = image_dir / image.name
+                    image_path = temp_dir / image.name
                     with open(image_path, 'wb') as img_file:
                         img_file.write(image.getvalue())
-                    image_paths[image.name] = image_path
-                for image_name, image_path in image_paths.items():
-                    input_text = input_text.replace(f"![{image_name}]", f"![{image_name}]({image_path})")
+                    image_paths.append(image_path)
+                
+                input_text = embed_images_in_md(input_text, image_paths)
             
             md_file = convert_to_md(input_text, temp_dir, filename=filename)
             if md_file:
