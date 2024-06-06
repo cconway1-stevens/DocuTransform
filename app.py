@@ -14,11 +14,19 @@ def format_equations(text):
 
 def find_image_paths(text):
     """
-    Find all image paths in the markdown text, stripping any directory structure.
+    Find all image paths in the text using Markdown syntax.
     """
     pattern = re.compile(r'!\[.*?\]\((.*?)\)')
-    paths = pattern.findall(text)
-    return [Path(path).name for path in paths]
+    return pattern.findall(text)
+
+def replace_image_paths(text, image_replacements):
+    """
+    Replace image paths in the text with the provided replacements.
+    """
+    pattern = re.compile(r'!\[.*?\]\((.*?)\)')
+    for image_path, new_path in image_replacements.items():
+        text = text.replace(image_path, new_path)
+    return text
 
 def convert_to_md(input_text, output_dir, filename="text.txt"):
     """
@@ -27,7 +35,7 @@ def convert_to_md(input_text, output_dir, filename="text.txt"):
     try:
         text = format_equations(input_text)
         text = text.replace('$$', '')  # Remove extra dollar signs
-        markdown_content = "" + text
+        markdown_content = text
         
         output_path = os.path.join(output_dir, os.path.splitext(filename)[0] + ".md")
         with open(output_path, 'w') as f:
@@ -76,73 +84,56 @@ def main():
     st.sidebar.title("Directions")
     st.sidebar.write("""
         1. **Upload a text file** or **paste text** into the provided text area.
-        2. Click the **Convert** button to generate Markdown, Word, PDF, and RTF files.
-        3. Preview the Markdown content below.
-        4. Download the generated files using the buttons in the sidebar.
+        2. Optionally, upload images to replace any placeholders found in the text.
+        3. Click the **Convert** button to generate Markdown, Word, PDF, and RTF files.
+        4. Preview the Markdown content below.
+        5. Download the generated files using the buttons in the sidebar.
     """)
 
     st.sidebar.title("Download Files")
 
+    if 'input_text' not in st.session_state:
+        st.session_state.input_text = ""
+    if 'uploaded_images' not in st.session_state:
+        st.session_state.uploaded_images = {}
+    if 'filename' not in st.session_state:
+        st.session_state.filename = "pasted_text.txt"
+
     uploaded_file = st.file_uploader("Upload a text file", type="txt")
-    input_text = st.text_area("Or, paste your text here")
+    input_text = st.text_area("Or, paste your text here", value=st.session_state.input_text)
 
-    image_paths = find_image_paths(input_text)
-    image_files_needed = {}
+    if input_text != st.session_state.input_text:
+        st.session_state.input_text = input_text
 
-    if image_paths:
-        st.sidebar.markdown("### Image Paths Detected")
-        st.sidebar.write("The following image paths were detected in your Markdown text. Please upload the corresponding images.")
-        for image_path in image_paths:
-            st.sidebar.write(f"- {image_path}")
-            image_files_needed[image_path] = None
+    if uploaded_file is not None:
+        temp_file_path = f"temp_{uploaded_file.name}"
+        with open(temp_file_path, 'wb') as temp_file:
+            temp_file.write(uploaded_file.getvalue())
+        
+        with open(temp_file_path, 'r') as f:
+            st.session_state.input_text = f.read()
+        st.session_state.filename = uploaded_file.name
 
-        uploaded_images = st.file_uploader("Upload images for Markdown", type=["png", "jpg", "jpeg", "gif"], accept_multiple_files=True)
+    # Find and count image paths
+    image_paths = find_image_paths(st.session_state.input_text)
+    st.info(f"Found {len(image_paths)} image paths.")
 
-        if uploaded_images:
-            for image in uploaded_images:
-                if image.name in image_files_needed:
-                    image_files_needed[image.name] = image
-    else:
-        uploaded_images = None
+    for i, image_path in enumerate(image_paths):
+        st.markdown(f"Placeholder for image {i+1}: {image_path}")
+        if image_path not in st.session_state.uploaded_images:
+            uploaded_image = st.file_uploader(f"Upload image to replace {image_path}", type=["png", "jpg", "jpeg", "gif"], key=f"image_{i}")
+            if uploaded_image:
+                image_file_path = f"temp_image_{uploaded_image.name}"
+                with open(image_file_path, 'wb') as img_file:
+                    img_file.write(uploaded_image.getvalue())
+                st.session_state.uploaded_images[image_path] = image_file_path
 
     if st.button("Convert"):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir)
-            
-            if uploaded_file is not None:
-                temp_file_path = temp_dir / uploaded_file.name
-                with open(temp_file_path, 'wb') as temp_file:
-                    temp_file.write(uploaded_file.getvalue())
-                
-                with open(temp_file_path, 'r') as f:
-                    input_text = f.read()
+            input_text = replace_image_paths(st.session_state.input_text, st.session_state.uploaded_images)
 
-                filename = uploaded_file.name
-            elif input_text:
-                filename = "pasted_text.txt"
-            else:
-                st.error("Please upload a file or paste text to convert.")
-                return
-
-            if image_files_needed:
-                image_dir = temp_dir / "images"
-                image_dir.mkdir()
-                for image_name, image in image_files_needed.items():
-                    if image is not None:
-                        image_path = image_dir / image_name
-                        with open(image_path, 'wb') as img_file:
-                            img_file.write(image.getvalue())
-                        # Update Markdown to use the new image path
-                        input_text = re.sub(
-                            rf'!\[.*?\]\({re.escape(image_name)}\)',
-                            f'![{image_name}]({image_path})',
-                            input_text
-                        )
-                    else:
-                        st.error(f"Missing image file: {image_name}")
-                        return
-            
-            md_file = convert_to_md(input_text, temp_dir, filename=filename)
+            md_file = convert_to_md(input_text, temp_dir, filename=st.session_state.filename)
             if md_file:
                 word_file = convert_to_word(md_file, temp_dir)
                 pdf_file = convert_to_pdf(md_file, temp_dir)
@@ -150,9 +141,8 @@ def main():
 
                 with open(md_file, 'r') as f:
                     st.markdown("### Markdown Preview")
-                    markdown_content = f.read()
-                    st.markdown(markdown_content, unsafe_allow_html=True)
-
+                    st.markdown(f.read(), unsafe_allow_html=True)
+                
                 st.sidebar.download_button("Download Markdown", data=open(md_file, 'rb'), file_name=os.path.basename(md_file))
                 if word_file:
                     st.sidebar.download_button("Download Word", data=open(word_file, 'rb'), file_name=os.path.basename(word_file))
@@ -160,24 +150,6 @@ def main():
                     st.sidebar.download_button("Download PDF", data=open(pdf_file, 'rb'), file_name=os.path.basename(pdf_file))
                 if rtf_file:
                     st.sidebar.download_button("Download RTF", data=open(rtf_file, 'rb'), file_name=os.path.basename(rtf_file))
-
-                # JavaScript to print the Markdown content
-                print_script = f"""
-                <script>
-                function printContent() {{
-                    var content = `{markdown_content.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$').replace('{', '\\{').replace('}', '\\}')}`;
-                    var printWindow = window.open('', '', 'height=500,width=500');
-                    printWindow.document.write('<html><head><title>Markdown Preview</title>');
-                    printWindow.document.write('</head><body>');
-                    printWindow.document.write(content);
-                    printWindow.document.write('</body></html>');
-                    printWindow.document.close();
-                    printWindow.print();
-                }}
-                </script>
-                <button onclick="printContent()">Print Markdown</button>
-                """
-                st.markdown(print_script, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
