@@ -79,7 +79,6 @@ def main():
         2. Click the **Convert** button to generate Markdown, Word, PDF, and RTF files.
         3. Preview the Markdown content below.
         4. Download the generated files using the buttons in the sidebar.
-        5. Click the links to open the files in a new tab.
     """)
 
     st.sidebar.title("Download Files")
@@ -92,12 +91,11 @@ def main():
 
     if image_paths:
         st.sidebar.markdown("### Image Paths Detected")
-        st.sidebar.write(f"The following image paths were detected in your Markdown text:")
+        st.sidebar.write("The following image paths were detected in your Markdown text. Please upload the corresponding images.")
         for image_path in image_paths:
             st.sidebar.write(f"- {image_path}")
             image_files_needed[image_path] = None
 
-        st.sidebar.write("Please upload the corresponding images.")
         uploaded_images = st.file_uploader("Upload images for Markdown", type=["png", "jpg", "jpeg", "gif"], accept_multiple_files=True)
 
         if uploaded_images:
@@ -134,7 +132,8 @@ def main():
                         image_path = image_dir / image_name
                         with open(image_path, 'wb') as img_file:
                             img_file.write(image.getvalue())
-                        input_text = re.sub(r'!\[.*?\]\(.*?{}\)'.format(re.escape(image_name)), f'![{image_name}]({image_path})', input_text)
+                        # Update Markdown to use the new image path
+                        input_text = input_text.replace(image_name, image_path.as_posix())
                     else:
                         st.error(f"Missing image file: {image_name}")
                         return
@@ -159,13 +158,28 @@ def main():
 
                 # Provide links to open files in a new tab
                 st.sidebar.markdown("### Open in New Tab")
-                st.sidebar.markdown(f"[Open Markdown](file://{md_file})", unsafe_allow_html=True)
+                md_file_url = f"/files/{md_file.name}"
+                word_file_url = f"/files/{word_file.name}" if word_file else None
+                pdf_file_url = f"/files/{pdf_file.name}" if pdf_file else None
+                rtf_file_url = f"/files/{rtf_file.name}" if rtf_file else None
+
+                st.sidebar.markdown(f"[Open Markdown]({md_file_url})", unsafe_allow_html=True)
+                if word_file_url:
+                    st.sidebar.markdown(f"[Open Word]({word_file_url})", unsafe_allow_html=True)
+                if pdf_file_url:
+                    st.sidebar.markdown(f"[Open PDF]({pdf_file_url})", unsafe_allow_html=True)
+                if rtf_file_url:
+                    st.sidebar.markdown(f"[Open RTF]({rtf_file_url})", unsafe_allow_html=True)
+
+                # Serve files using static files
+                if md_file:
+                    st.markdown(f"[Open Markdown](file://{md_file})", unsafe_allow_html=True)
                 if word_file:
-                    st.sidebar.markdown(f"[Open Word](file://{word_file})", unsafe_allow_html=True)
+                    st.markdown(f"[Open Word](file://{word_file})", unsafe_allow_html=True)
                 if pdf_file:
-                    st.sidebar.markdown(f"[Open PDF](file://{pdf_file})", unsafe_allow_html=True)
+                    st.markdown(f"[Open PDF](file://{pdf_file})", unsafe_allow_html=True)
                 if rtf_file:
-                    st.sidebar.markdown(f"[Open RTF](file://{rtf_file})", unsafe_allow_html=True)
+                    st.markdown(f"[Open RTF](file://{rtf_file})", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
