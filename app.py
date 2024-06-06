@@ -1,6 +1,5 @@
 import re
 import os
-import base64
 import pypandoc
 import streamlit as st
 import tempfile
@@ -20,7 +19,7 @@ def convert_to_md(input_text, output_dir, filename="text.txt"):
     try:
         text = format_equations(input_text)
         text = text.replace('$$', '')  # Remove extra dollar signs
-        markdown_content = text
+        markdown_content = "" + text
         
         output_path = os.path.join(output_dir, os.path.splitext(filename)[0] + ".md")
         with open(output_path, 'w') as f:
@@ -63,18 +62,6 @@ def convert_to_rtf(input_md_file, output_dir):
     except Exception as e:
         st.error(f"An error occurred during RTF conversion: {e}")
 
-def embed_images_in_md(input_text, images):
-    """
-    Embed images directly in the Markdown content as base64.
-    """
-    for image in images:
-        with open(image, 'rb') as img_file:
-            img_data = img_file.read()
-            img_base64 = base64.b64encode(img_data).decode('utf-8')
-            img_tag = f'![{os.path.basename(image)}](data:image/png;base64,{img_base64})'
-            input_text = input_text.replace(f'![{os.path.basename(image)}]', img_tag)
-    return input_text
-
 def main():
     st.title("File Converter")
 
@@ -92,7 +79,9 @@ def main():
     uploaded_file = st.file_uploader("Upload a text file", type="txt")
     input_text = st.text_area("Or, paste your text here")
 
-    uploaded_images = st.file_uploader("Upload images for Markdown", type=["png", "jpg", "jpeg", "gif"], accept_multiple_files=True)
+    if not input_text and uploaded_file is None:
+        st.warning("Please upload a file or paste text to convert.")
+        return
 
     if st.button("Convert"):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -105,24 +94,32 @@ def main():
                 
                 with open(temp_file_path, 'r') as f:
                     input_text = f.read()
-
                 filename = uploaded_file.name
-            elif input_text:
-                filename = "pasted_text.txt"
             else:
-                st.error("Please upload a file or paste text to convert.")
-                return
+                filename = "pasted_text.txt"
+            
+            # Insert placeholders for images
+            placeholder_count = input_text.count("![image]")
+            st.info(f"Found {placeholder_count} image placeholders.")
+            uploaded_images = []
+            for i in range(placeholder_count):
+                uploaded_image = st.file_uploader(f"Upload image for placeholder {i+1}", type=["png", "jpg", "jpeg", "gif"], key=f"image_{i}")
+                if uploaded_image:
+                    uploaded_images.append(uploaded_image)
 
             if uploaded_images:
-                image_paths = []
-                for image in uploaded_images:
-                    image_path = temp_dir / image.name
+                image_dir = temp_dir / "images"
+                image_dir.mkdir()
+                image_paths = {}
+                for i, image in enumerate(uploaded_images):
+                    image_path = image_dir / image.name
                     with open(image_path, 'wb') as img_file:
                         img_file.write(image.getvalue())
-                    image_paths.append(image_path)
+                    image_paths[f"![image]"] = image_path
                 
-                input_text = embed_images_in_md(input_text, image_paths)
-            
+                for placeholder, image_path in image_paths.items():
+                    input_text = input_text.replace(placeholder, f"![{image_path.name}]({image_path})", 1)
+
             md_file = convert_to_md(input_text, temp_dir, filename=filename)
             if md_file:
                 word_file = convert_to_word(md_file, temp_dir)
