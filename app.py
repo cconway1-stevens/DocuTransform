@@ -72,6 +72,7 @@ def main():
         3. Click the **Convert** button to generate Markdown, Word, PDF, and RTF files.
         4. Preview the Markdown content below.
         5. Download the generated files using the buttons in the sidebar.
+        6. Click the links to open the files in a new tab.
     """)
 
     st.sidebar.title("Download Files")
@@ -129,6 +130,16 @@ def main():
                     st.sidebar.download_button("Download PDF", data=open(pdf_file, 'rb'), file_name=os.path.basename(pdf_file))
                 if rtf_file:
                     st.sidebar.download_button("Download RTF", data=open(rtf_file, 'rb'), file_name=os.path.basename(rtf_file))
+
+                # Provide links to open files in a new tab
+                st.sidebar.markdown("### Open in New Tab")
+                st.sidebar.markdown(f"[Open Markdown](file://{md_file})", unsafe_allow_html=True)
+                if word_file:
+                    st.sidebar.markdown(f"[Open Word](file://{word_file})", unsafe_allow_html=True)
+                if pdf_file:
+                    st.sidebar.markdown(f"[Open PDF](file://{pdf_file})", unsafe_allow_html=True)
+                if rtf_file:
+                    st.sidebar.markdown(f"[Open RTF](file://{rtf_file})", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
