@@ -3,6 +3,7 @@ import os
 import pypandoc
 import streamlit as st
 import tempfile
+from pathlib import Path
 
 def format_equations(text):
     """
@@ -67,9 +68,10 @@ def main():
     st.sidebar.title("Directions")
     st.sidebar.write("""
         1. **Upload a text file** or **paste text** into the provided text area.
-        2. Click the **Convert** button to generate Markdown, Word, PDF, and RTF files.
-        3. Preview the Markdown content below.
-        4. Download the generated files using the buttons in the sidebar.
+        2. Optionally, upload images to be included in the Markdown.
+        3. Click the **Convert** button to generate Markdown, Word, PDF, and RTF files.
+        4. Preview the Markdown content below.
+        5. Download the generated files using the buttons in the sidebar.
     """)
 
     st.sidebar.title("Download Files")
@@ -77,10 +79,14 @@ def main():
     uploaded_file = st.file_uploader("Upload a text file", type="txt")
     input_text = st.text_area("Or, paste your text here")
 
+    uploaded_images = st.file_uploader("Upload images for Markdown", type=["png", "jpg", "jpeg", "gif"], accept_multiple_files=True)
+
     if st.button("Convert"):
         with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir)
+            
             if uploaded_file is not None:
-                temp_file_path = os.path.join(temp_dir, uploaded_file.name)
+                temp_file_path = temp_dir / uploaded_file.name
                 with open(temp_file_path, 'wb') as temp_file:
                     temp_file.write(uploaded_file.getvalue())
                 
@@ -94,6 +100,18 @@ def main():
                 st.error("Please upload a file or paste text to convert.")
                 return
 
+            if uploaded_images:
+                image_dir = temp_dir / "images"
+                image_dir.mkdir()
+                image_paths = {}
+                for image in uploaded_images:
+                    image_path = image_dir / image.name
+                    with open(image_path, 'wb') as img_file:
+                        img_file.write(image.getvalue())
+                    image_paths[image.name] = image_path
+                for image_name, image_path in image_paths.items():
+                    input_text = input_text.replace(f"![{image_name}]", f"![{image_name}]({image_path})")
+            
             md_file = convert_to_md(input_text, temp_dir, filename=filename)
             if md_file:
                 word_file = convert_to_word(md_file, temp_dir)
@@ -103,7 +121,7 @@ def main():
                 with open(md_file, 'r') as f:
                     st.markdown("### Markdown Preview")
                     st.markdown(f.read(), unsafe_allow_html=True)
-
+                
                 st.sidebar.download_button("Download Markdown", data=open(md_file, 'rb'), file_name=os.path.basename(md_file))
                 if word_file:
                     st.sidebar.download_button("Download Word", data=open(word_file, 'rb'), file_name=os.path.basename(word_file))
