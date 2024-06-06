@@ -12,6 +12,13 @@ def format_equations(text):
     pattern = re.compile(r'\$\$(.*?)\$\$')
     return pattern.sub(lambda x: f'$$\\({x.group(1)}\\)$$', text)
 
+def find_image_paths(text):
+    """
+    Find all image paths in the markdown text.
+    """
+    pattern = re.compile(r'!\[.*?\]\((.*?)\)')
+    return pattern.findall(text)
+
 def convert_to_md(input_text, output_dir, filename="text.txt"):
     """
     Apply Markdown formatting to the input text and write the output to a specified directory.
@@ -68,11 +75,10 @@ def main():
     st.sidebar.title("Directions")
     st.sidebar.write("""
         1. **Upload a text file** or **paste text** into the provided text area.
-        2. Optionally, upload images to be included in the Markdown.
-        3. Click the **Convert** button to generate Markdown, Word, PDF, and RTF files.
-        4. Preview the Markdown content below.
-        5. Download the generated files using the buttons in the sidebar.
-        6. Click the links to open the files in a new tab.
+        2. Click the **Convert** button to generate Markdown, Word, PDF, and RTF files.
+        3. Preview the Markdown content below.
+        4. Download the generated files using the buttons in the sidebar.
+        5. Click the links to open the files in a new tab.
     """)
 
     st.sidebar.title("Download Files")
@@ -80,7 +86,23 @@ def main():
     uploaded_file = st.file_uploader("Upload a text file", type="txt")
     input_text = st.text_area("Or, paste your text here")
 
-    uploaded_images = st.file_uploader("Upload images for Markdown", type=["png", "jpg", "jpeg", "gif"], accept_multiple_files=True)
+    image_paths = find_image_paths(input_text)
+
+    if image_paths:
+        st.sidebar.markdown("### Image Paths Detected")
+        st.sidebar.write("The following image paths were detected in your Markdown text. Please upload the corresponding images.")
+        uploaded_images = st.file_uploader("Upload images for Markdown", type=["png", "jpg", "jpeg", "gif"], accept_multiple_files=True)
+
+        if uploaded_images:
+            image_dir = tempfile.mkdtemp()
+            image_files = {img.name: img for img in uploaded_images}
+            for image_path in image_paths:
+                if image_path in image_files:
+                    with open(os.path.join(image_dir, os.path.basename(image_path)), 'wb') as img_file:
+                        img_file.write(image_files[image_path].getvalue())
+                    input_text = input_text.replace(image_path, os.path.join(image_dir, os.path.basename(image_path)))
+    else:
+        uploaded_images = None
 
     if st.button("Convert"):
         with tempfile.TemporaryDirectory() as temp_dir:
